@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>2026 안산강서고 1-4</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap');
+  * { font-family: 'Gowun Dodum', sans-serif; box-sizing: border-box; }
+
+  :root[data-theme="light"] {
+    --bg: #ffffff;
+    --bg-soft: #f7f6f3;
+    --card: #ffffff;
+    --border: #e9e7e2;
+    --text: #37352f;
+    --text-soft: #6b6a66;
+    --text-faint: #9b9a97;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 6px rgba(0,0,0,0.03);
+  }
+  :root[data-theme="dark"] {
+    --bg: #191919;
+    --bg-soft: #202020;
+    --card: #252525;
+    --border: #373737;
+    --text: #e7e6e4;
+    --text-soft: #a3a2a0;
+    --text-faint: #7c7b79;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 8px rgba(0,0,0,0.25);
+  }
+  body { background:var(--bg); color:var(--text); margin:0; transition:background .15s,color .15s; }
+  .surface { background:var(--card); }
+  .surface-soft { background:var(--bg-soft); }
+  .border-base { border-color:var(--border) !important; }
+  .text-base { color:var(--text); }
+  .text-soft { color:var(--text-soft); }
+  .text-faint { color:var(--text-faint); }
+  input[type="color"] { padding:0; cursor:pointer; }
+  input, textarea, select { background:var(--card); color:var(--text); border-color:var(--border) !important; }
+  input::placeholder, textarea::placeholder { color:var(--text-faint); }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body>
+<div id="app" class="w-full pb-16"></div>
+<div id="modal-root"></div>
+
+<script>
+/* ---- jsonbin.io 저장소 ---- */
+const BIN_ID = "6a900cbada38895dfe175dbb";
+const API_KEY = "$2a$10$FYtJRZXu3DP5VbKEm3lC5.dD/UivojDCSrnRbp0KdZU.7jYCeYmoi";
+const DATA_URL = "https://api.jsonbin.io/v3/b/" + BIN_ID;
+
+/* ---- 노션풍 태그 색상 팔레트 ---- */
+const NOTION_COLORS = {
+  orange:{ lbg:"#FAEBDD", ltext:"#B4620F", dbg:"#4a3320", dtext:"#e8a561" },
+  purple:{ lbg:"#F6F3F9", ltext:"#8A67AB", dbg:"#392f47", dtext:"#c39ee0" },
+  yellow:{ lbg:"#FBF3DB", ltext:"#A9821A", dbg:"#4a3f1c", dtext:"#e0c46c" },
+  red:   { lbg:"#FDEBEC", ltext:"#C4554D", dbg:"#452321", dtext:"#e5837a" },
+  green: { lbg:"#EDF3EC", ltext:"#4C7A5C", dbg:"#22362b", dtext:"#7cc99a" },
+  blue:  { lbg:"#E7F3F8", ltext:"#3E76A0", dbg:"#1c3547", dtext:"#7bb4dd" },
+};
+const DEFAULT_CATEGORIES = [
+  { key: "homework", label: "숙제", color: "#D98A2B" },
+  { key: "notice", label: "가정통신문", color: "#6B5FAE" },
+  { key: "eval", label: "수행평가", color: "#C15A42" },
+  { key: "exam", label: "정기고사", color: "#A1332B" },
+  { key: "event", label: "행사", color: "#2C8C7F" },
+  { key: "alert", label: "알림", color: "#3E7CB1" },
+];
+function hexToRgb(hex){
+  hex = (hex||"#999999").replace("#","");
+  if (hex.length===3) hex = hex.split("").map(c=>c+c).join("");
+  const num = parseInt(hex,16) || 0x999999;
+  return { r:(num>>16)&255, g:(num>>8)&255, b:num&255 };
+}
+function mixRgb(a,b,t){ return { r:Math.round(a.r+(b.r-a.r)*t), g:Math.round(a.g+(b.g-a.g)*t), b:Math.round(a.b+(b.b-a.b)*t) }; }
+function rgbToHex(c){ return "#"+[c.r,c.g,c.b].map(x=>Math.max(0,Math.min(255,x)).toString(16).padStart(2,"0")).join(""); }
+// 카테고리 색상 하나만 골라도 배경/글자색이 자동으로 어울리게 만들어주는 함수
+function tagStyle(hex, theme){
+  const rgb = hexToRgb(hex);
+  if (theme==="dark") {
+    return { bg: rgbToHex(mixRgb(rgb,{r:0,g:0,b:0},0.62)), text: rgbToHex(mixRgb(rgb,{r:255,g:255,b:255},0.4)) };
+  }
+  return { bg: rgbToHex(mixRgb(rgb,{r:255,g:255,b:255},0.82)), text: rgbToHex(mixRgb(rgb,{r:0,g:0,b:0},0.22)) };
+}
+const SWATCHES = [
+  "#D98A2B","#6B5FAE","#C15A42","#A1332B","#2C8C7F","#3E7CB1","#5B8A3C","#B45A9E",
+  "#F7C6C7","#FBE4B0","#C9E4CA","#B5D8EB","#D6C7E8","#F9D5B0","#B8E0D2","#E8C7DE",
+];
+const EMOJI_PRESETS = ["📚","✏️","📝","🎉","📢","🧪","⏰","📌","🏆","📅"];
+const ADMIN_PASSWORD = "262010";
+const RANGE_MIN = { y: 2026, m: 7 };
+const RANGE_MAX = { y: 2027, m: 2 };
+const MIN_DATE_STR = "2026-08-01";
+const MAX_DATE_STR = "2027-03-31";
+const WEEKDAYS = ["일","월","화","수","목","금","토"];
+
+/* ---- 2026년 1학년 4반 시간표 ---- */
+const TIMETABLE_DAYS = ["월","화","수","목","금"];
+const TIMETABLE_TIMES = ["09:10","10:10","11:10","12:10","14:00","15:00","16:00"];
+const TIMETABLE = [
+  // [월, 화, 수, 목, 금] - 각 칸은 {subject, teacher} 또는 null(공강)
+  [ {s:"국사2",t:"최윤"}, {s:"통과2",t:"김지"}, {s:"통수2",t:"문성"}, {s:"통국2",t:"장국"}, {s:"통사2",t:"정은"} ],
+  [ {s:"통사2",t:"정은"}, {s:"국사2",t:"최윤"}, {s:"중문",t:"조윤 (중국어실)"}, {s:"통영2",t:"김석"}, {s:"통수2",t:"문성"} ],
+  [ {s:"통국2",t:"장국"}, {s:"통수2",t:"문성"}, {s:"통과2",t:"김현"}, {s:"국사2",t:"최윤"}, {s:"통국2",t:"장국"} ],
+  [ {s:"체육2",t:"서주"}, {s:"중문",t:"조윤 (중국어실)"}, {s:"통사2",t:"정은"}, {s:"통수2",t:"문성"}, {s:"통과2",t:"김세"} ],
+  [ {s:"중문",t:"조윤 (중국어실)"}, {s:"과실2",t:"안지"}, {s:"통국2",t:"장국"}, {s:"체육2",t:"서주"}, {s:"창체",t:""} ],
+  [ {s:"통영2",t:"김석"}, {s:"통영2",t:"김석"}, {s:"통영2",t:"손병"}, {s:"통과2",t:"안지"}, {s:"창체",t:""} ],
+  [ {s:"진로",t:"진선"}, null, null, {s:"통사2",t:"정은"}, null ],
+];
+
+/* ---- 급식(NEIS) 실시간 연동 ---- */
+const SCHOOL_NAME = "안산강서고등학교";
+let SCHOOL_CODES = null; // { atpt, sd } - 최초 조회 후 캐시
+async function ensureSchoolCodes(){
+  if (SCHOOL_CODES) return SCHOOL_CODES;
+  const url = "https://open.neis.go.kr/hub/schoolInfo?Type=json&SCHUL_NM=" + encodeURIComponent(SCHOOL_NAME);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("school lookup failed");
+  const data = await res.json();
+  const row = data.schoolInfo && data.schoolInfo[1] && data.schoolInfo[1].row && data.schoolInfo[1].row[0];
+  if (!row) throw new Error("school not found");
+  SCHOOL_CODES = { atpt: row.ATPT_OFCDC_SC_CODE, sd: row.SD_SCHUL_CODE };
+  return SCHOOL_CODES;
+}
+async function loadMeal(dateStr){
+  S.mealLoading = true; S.mealError = false; S.mealRows = null; render();
+  try {
+    const codes = await ensureSchoolCodes();
+    const ymd = dateStr.replace(/-/g,"");
+    const url = `https://open.neis.go.kr/hub/mealServiceDietInfo?Type=json&ATPT_OFCDC_SC_CODE=${codes.atpt}&SD_SCHUL_CODE=${codes.sd}&MLSV_YMD=${ymd}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("meal fetch failed");
+    const data = await res.json();
+    const rows = data.mealServiceDietInfo && data.mealServiceDietInfo[1] && data.mealServiceDietInfo[1].row;
+    S.mealRows = rows ? rows.map(r=>({ name: r.MMEAL_SC_NM, dish: (r.DDISH_NM||"").replace(/<br\/>/g,"\n") })) : [];
+    S.mealError = false;
+  } catch (e) {
+    S.mealError = true;
+    S.mealRows = null;
+  }
+  S.mealLoading = false;
+  render();
+}
+
+
+/* ---- 2026.8 ~ 2027.3 대한민국 법정 공휴일(기본 제공) ---- */
+const BUILTIN_HOLIDAYS = [
+  { date:"2026-08-15", label:"광복절" },
+  { date:"2026-08-17", label:"대체공휴일(광복절)" },
+  { date:"2026-09-24", label:"추석 연휴" },
+  { date:"2026-09-25", label:"추석" },
+  { date:"2026-09-26", label:"추석 연휴" },
+  { date:"2026-10-03", label:"개천절" },
+  { date:"2026-10-05", label:"대체공휴일(개천절)" },
+  { date:"2026-10-09", label:"한글날" },
+  { date:"2026-12-25", label:"크리스마스" },
+  { date:"2027-01-01", label:"신정" },
+  { date:"2027-02-06", label:"설날 연휴" },
+  { date:"2027-02-07", label:"설날" },
+  { date:"2027-02-08", label:"설날 연휴" },
+  { date:"2027-02-09", label:"대체공휴일(설날)" },
+  { date:"2027-03-01", label:"삼일절" },
+];
+
+function pad(n){ return String(n).padStart(2,"0"); }
+function fmt(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function parseDate(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function diffDays(a,b){ return Math.round((b-a)/86400000); }
+function getCategory(key){ return S.categories.find(c=>c.key===key) || { key, label: key||"기타", color:"#9b9a97" }; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function esc(s){ return (s||"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+function clampToRange(y,m){
+  if (y < RANGE_MIN.y || (y===RANGE_MIN.y && m<RANGE_MIN.m)) return {y:RANGE_MIN.y,m:RANGE_MIN.m};
+  if (y > RANGE_MAX.y || (y===RANGE_MAX.y && m>RANGE_MAX.m)) return {y:RANGE_MAX.y,m:RANGE_MAX.m};
+  return {y,m};
+}
+function redDayLabel(dateStr){
+  const b = BUILTIN_HOLIDAYS.find(h=>h.date===dateStr);
+  if (b) return b.label;
+  const c = S.redDays.find(r=>r.date===dateStr);
+  if (c) return c.label;
+  return null;
+}
+function isRedDay(dateStr){ return !!redDayLabel(dateStr); }
+
+const today = new Date();
+const todayStr = fmt(today);
+const initial = clampToRange(today.getFullYear(), today.getMonth());
+
+const S = {
+  viewYear: initial.y,
+  viewMonth: initial.m,
+  selectedDate: (todayStr>=MIN_DATE_STR && todayStr<=MAX_DATE_STR) ? todayStr : MIN_DATE_STR,
+  events: [],
+  ddays: [],
+  redDays: [],
+  categories: DEFAULT_CATEGORIES.map(c=>({...c})),
+  banner: { lines: [] },
+  posts: [],
+  postCategories: [],
+  selectedPostId: null,
+  isAdmin: false,
+  theme: localStorage.getItem("theme") === "dark" ? "dark" : "light",
+  calendarStyle: localStorage.getItem("calendarStyle") === "table" ? "table" : "compact",
+  page: "calendar",
+  boardFilter: null,
+  boardSort: "desc",
+  boardSearch: "",
+  menuOpen: false,
+  mealDate: todayStr,
+  mealLoading: false,
+  mealError: false,
+  mealRows: null,
+  toast: "",
+  loading: true,
+};
+document.documentElement.setAttribute("data-theme", S.theme);
+
+/* ---- jsonbin 자동 불러오기/저장 ---- */
+async function loadFromServer(){
+  try {
+    const res = await fetch(DATA_URL + "/latest?t=" + Date.now(), {
+      cache: "no-store",
+      headers: { "X-Master-Key": API_KEY, "X-Bin-Meta": "false", "Cache-Control": "no-cache" },
+    });
+    if (!res.ok) throw new Error("fetch failed");
+    const data = await res.json();
+    S.events = Array.isArray(data.events) ? data.events : [];
+    S.ddays = Array.isArray(data.ddays) ? data.ddays : [];
+    S.redDays = Array.isArray(data.redDays) ? data.redDays : [];
+    S.categories = Array.isArray(data.categories) && data.categories.length>0 ? data.categories : DEFAULT_CATEGORIES.map(c=>({...c}));
+    S.banner = data.banner && Array.isArray(data.banner.lines) ? data.banner : { lines: [] };
+    S.posts = Array.isArray(data.posts) ? data.posts : [];
+    S.postCategories = Array.isArray(data.postCategories) ? data.postCategories : [];
+  } catch (e) {}
+  S.loading = false;
+  render();
+}
+async function saveToServer(){
+  S.lastSaveAt = Date.now();
+  const body = JSON.stringify({ events: S.events, ddays: S.ddays, redDays: S.redDays, banner: S.banner, categories: S.categories, posts: S.posts, postCategories: S.postCategories });
+  const sizeKB = Math.round(new Blob([body]).size / 1024);
+  if (sizeKB > 950){
+    showToast(`⚠️ 저장 실패: 데이터 용량(${sizeKB}KB)이 너무 커요. 사진을 줄이거나 오래된 게시글을 지워주세요.`);
+    return false;
+  }
+  try {
+    const res = await fetch(DATA_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
+      body,
+    });
+    if (!res.ok){
+      showToast("⚠️ 저장 실패했어요. 잠시 후 다시 시도해 주세요.");
+      return false;
+    }
+    S.lastSaveAt = Date.now();
+    return true;
+  } catch (e) {
+    showToast("⚠️ 저장 실패했어요. 인터넷 연결을 확인해 주세요.");
+    return false;
+  }
+}
+setInterval(()=>{
+  const modalOpen = document.getElementById("modal-root") && document.getElementById("modal-root").innerHTML.trim()!=="";
+  const justSaved = S.lastSaveAt && (Date.now() - S.lastSaveAt < 8000);
+  if (!modalOpen && !justSaved) loadFromServer();
+}, 20000);
+
+function showToast(msg){
+  S.toast = msg;
+  render();
+  setTimeout(()=>{ S.toast=""; const t=document.getElementById("toast"); if(t) t.remove(); }, 1800);
+}
+
+/* ---- 계산 로직 ---- */
+function ddayCountdown(startDate, endDate){
+  endDate = endDate || startDate;
+  const t = parseDate(todayStr), s = parseDate(startDate), e = parseDate(endDate);
+  if (t>=s && t<=e) return { text:"진행중", tone:"#2C8C7F" };
+  if (t<s) return { text:`D-${diffDays(t,s)}`, tone:"#2E3153" };
+  return { text:"지남", tone:"#9b9a97" };
+}
+function buildWeeks(viewYear, viewMonth){
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const totalCells = Math.ceil((firstDow+daysInMonth)/7)*7;
+  const cells = [];
+  for (let i=0;i<totalCells;i++){
+    const dayNum = i-firstDow+1;
+    const dateObj = new Date(viewYear, viewMonth, dayNum);
+    cells.push({ d: dateObj.getDate(), dateObj, inMonth: dayNum>=1 && dayNum<=daysInMonth });
+  }
+  const weeks = [];
+  for (let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
+  return weeks;
+}
+function buildBars(weeks, barSource){
+  return weeks.map(week=>{
+    const weekStartStr = fmt(week[0].dateObj);
+    const weekEndStr = fmt(week[6].dateObj);
+    const overlapping = barSource.filter(it=> it.endDate>=weekStartStr && it.startDate<=weekEndStr);
+    const sorted = [...overlapping].sort((a,b)=>{
+      if (a.startDate!==b.startDate) return a.startDate<b.startDate?-1:1;
+      return b.endDate.localeCompare(a.endDate);
+    });
+    const laneEnds = [];
+    const bars = sorted.map(item=>{
+      const cs = item.startDate<weekStartStr ? weekStartStr : item.startDate;
+      const ce = item.endDate>weekEndStr ? weekEndStr : item.endDate;
+      const startCol = diffDays(week[0].dateObj, parseDate(cs));
+      const endCol = diffDays(week[0].dateObj, parseDate(ce));
+      let lane = laneEnds.findIndex(e=>e<startCol);
+      if (lane===-1){ lane=laneEnds.length; laneEnds.push(endCol); } else laneEnds[lane]=endCol;
+      return { item, startCol, span: endCol-startCol+1, lane };
+    });
+    return { week, bars, laneCount: laneEnds.length };
+  });
+}
+function eventsOnDate(dateStr){
+  return S.events.filter(ev=> ev.startDate<=dateStr && ev.endDate>=dateStr)
+    .sort((a,b)=> a.startDate<b.startDate?-1:1);
+}
+
+/* ---- 렌더링 ---- */
+function render(){
+  document.documentElement.setAttribute("data-theme", S.theme);
+  if (S.loading){
+    document.getElementById("app").innerHTML = `<div class="max-w-2xl mx-auto px-5 py-16 text-center text-sm text-faint">불러오는 중...</div>`;
+    return;
+  }
+  const weeks = buildWeeks(S.viewYear, S.viewMonth);
+  const atMin = S.viewYear===RANGE_MIN.y && S.viewMonth===RANGE_MIN.m;
+  const atMax = S.viewYear===RANGE_MAX.y && S.viewMonth===RANGE_MAX.m;
+  const eventDdays = S.events.filter(ev=>ev.showAsDday).map(ev=>({ id:"evd-"+ev.id, title:ev.title, emoji:ev.emoji, color:ev.color, startDate:ev.startDate, endDate:ev.endDate }));
+  const ddaySorted = [...S.ddays, ...eventDdays].sort((a,b)=> a.startDate<b.startDate?-1:1);
+  const selectedEvents = eventsOnDate(S.selectedDate);
+  const selectedHoliday = redDayLabel(S.selectedDate);
+
+  let html = `
+  <div class="px-5 pt-7 pb-5 max-w-2xl mx-auto relative">
+    <div class="flex items-center justify-between flex-wrap gap-y-2">
+      <h1 class="text-xl font-bold text-base">2026 안산강서고 1-4</h1>
+      <div class="flex items-center gap-3 flex-wrap justify-end">
+        <label class="flex items-center gap-1.5 text-[10px] font-bold tracking-wide text-soft select-none" style="cursor:pointer">
+          TABLE VIEW
+          <button data-action="toggle-calendar-style" role="switch" aria-checked="${S.calendarStyle==='table'}" class="relative rounded-full transition-colors" style="width:34px;height:19px;background:${S.calendarStyle==='table'?'#2E3153':'#d8d5cf'}">
+            <span class="absolute rounded-full bg-white transition-transform" style="width:15px;height:15px;top:2px;left:2px;transform:translateX(${S.calendarStyle==='table'?'15px':'0'});box-shadow:0 1px 2px rgba(0,0,0,0.3)"></span>
+          </button>
+        </label>
+        <label class="flex items-center gap-1.5 text-[10px] font-bold tracking-wide text-soft select-none" style="cursor:pointer">
+          DARK MODE
+          <button data-action="toggle-theme" role="switch" aria-checked="${S.theme==='dark'}" class="relative rounded-full transition-colors" style="width:34px;height:19px;background:${S.theme==='dark'?'#2E3153':'#d8d5cf'}">
+            <span class="absolute rounded-full bg-white transition-transform" style="width:15px;height:15px;top:2px;left:2px;transform:translateX(${S.theme==='dark'?'15px':'0'});box-shadow:0 1px 2px rgba(0,0,0,0.3)"></span>
+          </button>
+        </label>
+        ${S.isAdmin
+          ? `<button data-action="exit-admin" class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full text-white" style="background:#6B5FAE">🔓 관리자</button>`
+          : `<button data-action="open-pw" class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full surface-soft text-soft border border-base">🔒 관리자</button>`}
+        <button data-action="toggle-menu" class="flex items-center justify-center rounded-full surface-soft border border-base" style="width:32px;height:32px;font-size:16px">☰</button>
+      </div>
+    </div>
+    ${S.menuOpen ? `
+    <div class="absolute right-5 top-full mt-1 rounded-lg surface border border-base z-40" style="box-shadow:var(--shadow);min-width:150px">
+      <button data-action="go-page" data-page="calendar" class="w-full text-left px-4 py-2.5 text-sm ${S.page==='calendar'?'font-bold':''} text-base" style="background:${S.page==='calendar'?'var(--bg-soft)':'transparent'}">📅 캘린더</button>
+      <button data-action="go-page" data-page="timetable" class="w-full text-left px-4 py-2.5 text-sm ${S.page==='timetable'?'font-bold':''} text-base" style="background:${S.page==='timetable'?'var(--bg-soft)':'transparent'}">🗓 시간표</button>
+      <button data-action="go-page" data-page="meal" class="w-full text-left px-4 py-2.5 text-sm ${S.page==='meal'?'font-bold':''} text-base" style="background:${S.page==='meal'?'var(--bg-soft)':'transparent'}">🍚 급식</button>
+      <button data-action="go-page" data-page="board" class="w-full text-left px-4 py-2.5 text-sm ${S.page==='board'?'font-bold':''} text-base" style="background:${S.page==='board'?'var(--bg-soft)':'transparent'}">📋 게시판</button>
+      ${S.isAdmin ? `<div class="px-4 py-2 text-[10px] text-faint border-t border-base">🔓 관리자 모드</div>` : ""}
+    </div>` : ""}
+  </div>`;
+
+  if (S.page === "timetable") { html += renderTimetablePage(); document.getElementById("app").innerHTML = html; return; }
+  if (S.page === "meal") { html += renderMealPage(); document.getElementById("app").innerHTML = html; return; }
+  if (S.page === "board") { html += renderBoardPage(); document.getElementById("app").innerHTML = html; bindBoardPageListeners(); return; }
+
+  // 고정 알림 배너
+  if (S.banner.lines.length>0 || S.isAdmin){
+    html += `<div class="max-w-2xl mx-auto px-5 mb-4">
+      <div class="rounded-lg p-3 surface border border-base" style="box-shadow:var(--shadow)">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-bold flex items-center gap-1 text-soft">📌 알림</span>
+          ${S.isAdmin ? `<button data-action="open-banner-manage" class="text-[11px] underline text-soft">편집</button>` : ""}
+        </div>
+        ${S.banner.lines.length>0
+          ? `<ul class="text-xs text-base" style="padding-left:16px;list-style:disc">${S.banner.lines.map(l=>`<li class="mb-0.5">${esc(l)}</li>`).join("")}</ul>`
+          : (S.isAdmin ? `<p class="text-xs text-faint">등록된 알림이 없어요.</p>` : "")}
+      </div>
+    </div>`;
+  }
+
+  html += `<div class="max-w-2xl mx-auto px-5">
+    <div class="flex items-center justify-center gap-4 mb-4">
+      <button data-action="prev-month" ${atMin?"disabled":""} class="p-1.5 rounded-full surface-soft border border-base" style="opacity:${atMin?0.3:1}">‹</button>
+      <div class="text-lg font-bold w-32 text-center text-base">${S.viewYear}년 ${S.viewMonth+1}월</div>
+      <button data-action="next-month" ${atMax?"disabled":""} class="p-1.5 rounded-full surface-soft border border-base" style="opacity:${atMax?0.3:1}">›</button>
+    </div>
+  </div>`;
+
+  // D-day widget
+  if (ddaySorted.length>0 || S.isAdmin){
+    html += `<div class="max-w-2xl mx-auto px-5 mb-4">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs font-bold text-soft">디데이</span>
+        ${S.isAdmin ? `<button data-action="open-dday-manage" class="flex items-center gap-1 text-[11px] px-2 py-1 rounded-full text-white" style="background:#2E3153">＋ 디데이 관리</button>` : ""}
+      </div>
+      ${ddaySorted.length>0 ? `<div class="flex gap-2 overflow-x-auto pb-1">${ddaySorted.map(item=>{
+        const dd = ddayCountdown(item.startDate, item.endDate);
+        return `<div class="flex-shrink-0 rounded-lg px-3 py-2 surface border border-base" style="border-left:4px solid ${item.color};min-width:108px;box-shadow:var(--shadow)">
+          <div class="text-[11px] font-bold" style="color:${dd.tone}">${dd.text}</div>
+          <div class="text-xs mt-0.5 truncate text-base" style="max-width:100px">${esc(item.emoji)} ${esc(item.title)}</div>
+        </div>`;
+      }).join("")}</div>` : (S.isAdmin ? `<p class="text-xs text-faint">등록된 디데이가 없어요.</p>` : "")}
+    </div>`;
+  }
+
+  // Calendar: compact(기본, 고정 칸) / table(노션 스타일) 두 가지 스타일 지원
+  if (S.calendarStyle === "table") {
+    const multiDayOnly = [
+      ...S.events.filter(ev=>ev.startDate!==ev.endDate).map(ev=>({ id:ev.id, title:ev.title, emoji:ev.emoji, color:ev.color, startDate:ev.startDate, endDate:ev.endDate })),
+      ...S.ddays.filter(d=>d.startDate!==d.endDate).map(d=>({ id:"dday-"+d.id, title:d.title, emoji:d.emoji, color:d.color, startDate:d.startDate, endDate:d.endDate })),
+    ];
+    const weeksWithBars = buildBars(weeks, multiDayOnly);
+    const NUM_ROW_H = 22;
+    html += `<div class="max-w-2xl mx-auto px-5">
+      <div class="overflow-x-auto pb-1">
+        <div style="min-width:760px">
+          <div class="grid grid-cols-7 text-center text-xs mb-1">
+            ${WEEKDAYS.map((w,i)=>`<div class="py-1 font-bold" style="color:${i===0?'#C4554D':i===6?'#3E76A0':'var(--text-faint)'}">${w}</div>`).join("")}
+          </div>
+          ${weeksWithBars.map((wk,wi)=>{
+            const barsAreaH = wk.laneCount>0 ? wk.laneCount*20+4 : 0;
+            return `<div class="relative ${wi===0?'border-t':''} border-l border-base">
+              <div class="grid grid-cols-7">
+                ${wk.week.map(cell=>{
+                  const dateStr = fmt(cell.dateObj);
+                  const dow = cell.dateObj.getDay();
+                  const inRange = dateStr>=MIN_DATE_STR && dateStr<=MAX_DATE_STR;
+                  const isSelected = dateStr===S.selectedDate;
+                  const isToday = dateStr===todayStr;
+                  const holiday = redDayLabel(dateStr);
+                  const numColor = holiday ? '#C4554D' : dow===0 ? '#C4554D' : dow===6 ? '#3E76A0' : 'var(--text)';
+                  const dayEvents = S.events.filter(ev=>ev.startDate===ev.endDate && ev.startDate===dateStr);
+                  return `<button data-action="select-date" data-date="${dateStr}" ${inRange?"":"disabled"} class="text-left align-top border-r border-b border-base p-1.5 flex flex-col gap-1 ${isSelected?'surface-soft':''}" style="opacity:${cell.inMonth&&inRange?1:0.3}">
+                    <div class="flex items-center gap-1" style="height:${NUM_ROW_H}px">
+                      <span class="text-xs w-5 h-5 flex items-center justify-center rounded-full flex-shrink-0" style="color:${isToday?'#fff':numColor};background:${isToday?'#2E3153':'transparent'};font-weight:${isToday?700:500}">${cell.d}</span>
+                      ${holiday ? `<span class="text-[9px] font-bold truncate" style="color:#C4554D">${esc(holiday)}</span>` : ""}
+                    </div>
+                    ${barsAreaH>0 ? `<div style="height:${barsAreaH}px"></div>` : ""}
+                    ${dayEvents.map(ev=>{
+                      const tone = tagStyle(getCategory(ev.category).color, S.theme);
+                      return `<div class="rounded px-1.5 py-1" style="background:${tone.bg}">
+                        <div class="text-[10px] font-bold truncate" style="color:${tone.text}">${esc(ev.emoji)} ${esc(ev.title)}</div>
+                        ${ev.description?`<div class="text-[9px] mt-0.5 text-soft">${esc(ev.description)}</div>`:""}
+                      </div>`;
+                    }).join("")}
+                  </button>`;
+                }).join("")}
+              </div>
+              ${barsAreaH>0 ? `<div class="absolute px-0.5" style="left:0;right:0;top:${NUM_ROW_H}px;height:${barsAreaH}px">
+                ${wk.bars.map(b=>`<button data-action="select-date" data-date="${b.item.startDate}" class="absolute text-[10px] px-1.5 flex items-center rounded truncate text-white text-left" style="left:${(b.startCol/7)*100}%;width:calc(${(b.span/7)*100}% - 3px);top:${b.lane*20+2}px;height:17px;background:${b.item.color};font-weight:600">${esc(b.item.emoji)} ${esc(b.item.title)}</button>`).join("")}
+              </div>` : ""}
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>`;
+  } else {
+    const multiDaySource = [
+      ...S.events.map(ev=>({ id:ev.id, title:ev.title, emoji:ev.emoji, color:ev.color, startDate:ev.startDate, endDate:ev.endDate, description:ev.description })),
+      ...S.ddays.map(d=>({ id:"dday-"+d.id, title:d.title, emoji:d.emoji, color:d.color, startDate:d.startDate, endDate:d.endDate, description:"" })),
+    ];
+    const weeksWithBars = buildBars(weeks, multiDaySource);
+    html += `<div class="max-w-2xl mx-auto px-5">
+      <div class="grid grid-cols-7 text-center text-xs mb-1">
+        ${WEEKDAYS.map((w,i)=>`<div class="py-1 font-bold" style="color:${i===0?'#C4554D':i===6?'#3E76A0':'var(--text-faint)'}">${w}</div>`).join("")}
+      </div>
+      <div class="flex flex-col gap-0.5">
+        ${weeksWithBars.map(wk=>{
+          const weekHasSelected = wk.week.some(c=>fmt(c.dateObj)===S.selectedDate);
+          return `<div class="rounded-md ${weekHasSelected?'surface-soft':''}">
+            <div class="grid grid-cols-7">
+              ${wk.week.map(cell=>{
+                const dateStr = fmt(cell.dateObj);
+                const dow = cell.dateObj.getDay();
+                const inRange = dateStr>=MIN_DATE_STR && dateStr<=MAX_DATE_STR;
+                const isSelected = dateStr===S.selectedDate;
+                const isToday = dateStr===todayStr;
+                const holiday = isRedDay(dateStr);
+                const numColor = isSelected ? '#fff' : holiday ? '#C4554D' : dow===0 ? '#C4554D' : dow===6 ? '#3E76A0' : 'var(--text)';
+                return `<button data-action="select-date" data-date="${dateStr}" ${inRange?"":"disabled"} class="flex items-center justify-center py-1" style="opacity:${cell.inMonth&&inRange?1:0.28}">
+                  <span class="text-xs w-6 h-6 flex items-center justify-center rounded-full" style="color:${numColor};background:${isSelected?'#2E3153':'transparent'};font-weight:${isToday||isSelected?700:500};border:${isToday&&!isSelected?'1.5px solid #2E3153':'none'}">${cell.d}</span>
+                </button>`;
+              }).join("")}
+            </div>
+            ${wk.laneCount>0 ? `<div class="relative px-0.5 pb-1" style="height:${wk.laneCount*30}px">
+              ${wk.bars.map(b=>`<button data-action="select-date" data-date="${b.item.startDate}" class="absolute px-1.5 py-1 rounded text-white text-left overflow-hidden" style="left:${(b.startCol/7)*100}%;width:calc(${(b.span/7)*100}% - 3px);top:${b.lane*30}px;height:27px;background:${b.item.color}">
+                <div class="text-[10px] font-bold truncate leading-tight">${esc(b.item.emoji)} ${esc(b.item.title)}</div>
+                ${b.item.description?`<div class="text-[9px] truncate leading-tight" style="opacity:0.85">${esc(b.item.description)}</div>`:""}
+              </button>`).join("")}
+            </div>` : ""}
+          </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+  }
+
+  // Day detail
+  html += `<div class="max-w-2xl mx-auto px-5 mt-6">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <h2 class="text-base font-bold text-base">${Number(S.selectedDate.split("-")[1])}월 ${Number(S.selectedDate.split("-")[2])}일</h2>
+        ${selectedHoliday ? `<span class="text-xs font-bold px-2 py-0.5 rounded" style="background:${NOTION_COLORS.red.lbg};color:${NOTION_COLORS.red.ltext}">${esc(selectedHoliday)}</span>` : ""}
+        ${S.isAdmin ? `<button data-action="open-redday-manage" class="text-[11px] underline text-soft">빨간날 관리</button>` : ""}
+      </div>
+      ${S.isAdmin ? `<button data-action="open-add-event" class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full text-white" style="background:#2E3153">＋ 일정 추가</button>` : ""}
+    </div>
+    ${selectedEvents.length===0
+      ? `<p class="text-sm py-6 text-center rounded-lg surface-soft text-faint">등록된 일정이 없어요.</p>`
+      : `<ul class="flex flex-col gap-2">${selectedEvents.map(ev=>{
+          const cat = getCategory(ev.category);
+          const tone = tagStyle(cat.color, S.theme);
+          const isRange = ev.startDate!==ev.endDate;
+          return `<li class="rounded-lg p-3 flex items-start gap-2 surface border border-base" style="border-left:4px solid ${ev.color};box-shadow:var(--shadow)">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background:${tone.bg};color:${tone.text}">${cat.label}</span>
+              </div>
+              <div class="text-sm font-bold mt-1 text-base">${esc(ev.emoji)} ${esc(ev.title)}</div>
+              <div class="text-[11px] mt-0.5 flex items-center gap-2 flex-wrap text-faint">
+                ${isRange?`<span>${ev.startDate.slice(5)} ~ ${ev.endDate.slice(5)}</span>`:""}
+                ${ev.hasTime?`<span>🕐 ${ev.startTime}${ev.endTime?` ~ ${ev.endTime}`:""}</span>`:""}
+              </div>
+              ${ev.description?`<p class="text-xs mt-1 text-base">${esc(ev.description)}</p>`:""}
+              ${ev.memo?`<p class="text-xs mt-1 text-soft">${esc(ev.memo)}</p>`:""}
+            </div>
+            <div class="flex flex-col items-end gap-2 flex-shrink-0">
+              ${S.isAdmin
+                ? `<div class="flex gap-1">
+                    <button data-action="open-edit-event" data-id="${ev.id}" class="p-1.5 rounded-md surface-soft">✎</button>
+                    ${S.confirmDeleteId===ev.id
+                      ? `<button data-action="delete-event" data-id="${ev.id}" class="p-1.5 rounded-md text-white text-[10px] px-2" style="background:#B23A32">확인</button>`
+                      : `<button data-action="confirm-delete-event" data-id="${ev.id}" class="p-1.5 rounded-md surface-soft">🗑</button>`}
+                  </div>`
+                : ""}
+            </div>
+          </li>`;
+        }).join("")}</ul>`}
+  </div>`;
+
+  if (S.toast) html += `<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 text-xs px-4 py-2 rounded-full text-white z-50" style="background:#2A2622;transform:translateX(-50%)">${esc(S.toast)}</div>`;
+
+  document.getElementById("app").innerHTML = html;
+}
+
+/* ---- 액션 처리 ---- */
+document.addEventListener("click", (e)=>{
+  const el = e.target.closest("[data-action]");
+  if (!el) {
+    if (S.menuOpen) { S.menuOpen = false; render(); }
+    return;
+  }
+  if (S.menuOpen && el.dataset.action!=="toggle-menu" && el.dataset.action!=="go-page") { S.menuOpen = false; }
+  const action = el.dataset.action;
+  const id = el.dataset.id;
+  const date = el.dataset.date;
+
+  if (action==="prev-month"){ if(!(S.viewYear===RANGE_MIN.y&&S.viewMonth===RANGE_MIN.m)){ if(S.viewMonth===0){S.viewMonth=11;S.viewYear--;} else S.viewMonth--; render(); } }
+  else if (action==="next-month"){ if(!(S.viewYear===RANGE_MAX.y&&S.viewMonth===RANGE_MAX.m)){ if(S.viewMonth===11){S.viewMonth=0;S.viewYear++;} else S.viewMonth++; render(); } }
+  else if (action==="select-date"){ S.selectedDate=date; S.confirmDeleteId=null; render(); }
+  else if (action==="toggle-theme"){ S.theme = S.theme==="dark" ? "light" : "dark"; localStorage.setItem("theme", S.theme); render(); }
+  else if (action==="toggle-calendar-style"){ S.calendarStyle = S.calendarStyle==="table" ? "compact" : "table"; localStorage.setItem("calendarStyle", S.calendarStyle); render(); }
+  else if (action==="toggle-menu"){ S.menuOpen = !S.menuOpen; render(); }
+  else if (action==="go-page"){
+    S.page = el.dataset.page; S.menuOpen = false; render();
+    if (S.page==="meal" && S.mealRows===null && !S.mealLoading) loadMeal(S.mealDate);
+  }
+  else if (action==="meal-prev-day"){ const d=parseDate(S.mealDate); d.setDate(d.getDate()-1); S.mealDate=fmt(d); loadMeal(S.mealDate); }
+  else if (action==="meal-next-day"){ const d=parseDate(S.mealDate); d.setDate(d.getDate()+1); S.mealDate=fmt(d); loadMeal(S.mealDate); }
+  else if (action==="meal-today"){ S.mealDate=todayStr; loadMeal(S.mealDate); }
+  else if (action==="open-pw"){ openPasswordModal(); }
+  else if (action==="exit-admin"){ S.isAdmin=false; render(); showToast("학생 보기로 돌아왔어요"); }
+  else if (action==="open-add-event"){ openEventForm(null); }
+  else if (action==="open-edit-event"){ openEventForm(S.events.find(ev=>ev.id===id)); }
+  else if (action==="confirm-delete-event"){ S.confirmDeleteId=id; render(); }
+  else if (action==="delete-event"){ S.events=S.events.filter(ev=>ev.id!==id); saveToServer(); S.confirmDeleteId=null; render(); showToast("일정을 삭제했어요"); }
+  else if (action==="open-dday-manage"){ openDdayManage(); }
+  else if (action==="open-redday-manage"){ openRedDayManage(); }
+  else if (action==="open-category-manage"){ openCategoryManage(); }
+  else if (action==="open-post"){ S.selectedPostId = id; render(); }
+  else if (action==="back-to-board-list"){ S.selectedPostId = null; render(); }
+  else if (action==="open-add-post"){ openPostForm(null); }
+  else if (action==="open-edit-post"){ openPostForm(S.posts.find(p=>p.id===id)); }
+  else if (action==="confirm-delete-post"){ S.confirmDeletePostId = id; render(); }
+  else if (action==="delete-post"){ S.posts = S.posts.filter(p=>p.id!==id); saveToServer(); S.confirmDeletePostId=null; S.selectedPostId=null; render(); showToast("게시글을 삭제했어요"); }
+  else if (action==="open-post-category-manage"){ openPostCategoryManage(); }
+  else if (action==="board-filter"){ S.boardFilter = el.dataset.cat || null; render(); }
+  else if (action==="board-sort-toggle"){ S.boardSort = S.boardSort==="desc" ? "asc" : "desc"; render(); }
+  else if (action==="open-banner-manage"){ openBannerManage(); }
+  else if (action==="close-modal"){ closeModal(); }
+});
+
+/* ---- 비밀번호 모달 ---- */
+function openPasswordModal(){
+  document.getElementById("modal-root").innerHTML = `
+  <div class="fixed inset-0 flex items-center justify-center px-6 z-50" style="background:rgba(0,0,0,0.45)">
+    <div class="rounded-xl p-5 w-full max-w-xs surface border border-base">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-bold text-base">관리자 로그인</h3>
+        <button data-action="close-modal" class="text-soft">✕</button>
+      </div>
+      <input id="pw-input" type="password" placeholder="비밀번호" class="w-full rounded-md px-3 py-2 text-sm outline-none border" autofocus />
+      <p id="pw-error" class="text-xs mt-1.5" style="color:#C4554D"></p>
+      <button id="pw-submit" class="w-full mt-3 rounded-md py-2 text-sm text-white font-bold" style="background:#2E3153">들어가기</button>
+    </div>
+  </div>`;
+  const input = document.getElementById("pw-input");
+  input.focus();
+  function attempt(){
+    if (input.value===ADMIN_PASSWORD){
+      S.isAdmin=true; closeModal(); render(); showToast("관리자 모드로 전환했어요");
+    } else {
+      document.getElementById("pw-error").textContent = "비밀번호가 올바르지 않아요";
+    }
+  }
+  document.getElementById("pw-submit").onclick = attempt;
+  input.addEventListener("keydown", e=>{ if(e.key==="Enter") attempt(); });
+}
+function closeModal(){ document.getElementById("modal-root").innerHTML=""; }
+
+/* ---- 일정 추가/수정 모달 ---- */
+let FORM = null;
+function openEventForm(ev){
+  FORM = ev ? { ...ev } : {
+    id: null, title:"", emoji:"", category:(S.categories[0]?S.categories[0].key:"homework"), color:(S.categories[0]?S.categories[0].color:"#D98A2B"),
+    startDate:S.selectedDate, endDate:S.selectedDate, hasTime:false, startTime:"09:00", endTime:"10:00",
+    description:"", memo:"", showAsDday:false
+  };
+  renderEventForm();
+}
+function renderEventForm(){
+  const f = FORM;
+  document.getElementById("modal-root").innerHTML = `
+  <div class="fixed inset-0 flex items-end sm:items-center justify-center z-50" style="background:rgba(0,0,0,0.45)">
+    <div class="rounded-t-2xl sm:rounded-xl p-5 w-full max-w-md overflow-y-auto surface border border-base" style="max-height:88vh">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-base">${f.id?"일정 수정":"일정 추가"}</h3>
+        <button data-action="close-modal" class="text-soft">✕</button>
+      </div>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs text-soft">구분</label>
+          <div id="cat-buttons" class="flex flex-wrap gap-1.5 mt-1">
+            ${S.categories.map(c=>{
+              const tone = tagStyle(c.color, S.theme);
+              const active = f.category===c.key;
+              return `<button data-cat="${c.key}" data-color="${c.color}" class="cat-btn text-xs px-2.5 py-1.5 rounded-full font-bold" style="background:${active?'#2E3153':tone.bg};color:${active?'#fff':tone.text}">${esc(c.label)}</button>`;
+            }).join("")}
+          </div>
+          ${S.isAdmin ? `<button data-action="open-category-manage" class="text-[11px] underline text-soft mt-1">구분 관리</button>` : ""}
+        </div>
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <label class="text-xs text-soft">이모지</label>
+            <input id="f-emoji" type="text" value="${esc(f.emoji)}" placeholder="📚" class="w-full rounded-md px-3 py-2 text-sm mt-1 outline-none border" />
+            <div class="flex flex-wrap gap-1 mt-1.5">${EMOJI_PRESETS.map(e=>`<button data-emoji-pick="${e}" class="text-sm px-1.5 py-0.5 rounded surface-soft">${e}</button>`).join("")}</div>
+          </div>
+          <div style="width:96px">
+            <label class="text-xs text-soft">색상</label>
+            <input id="f-color" type="color" value="${f.color}" class="w-full h-9 rounded-md mt-1 border" />
+            <div class="flex flex-wrap gap-1 mt-1.5">${SWATCHES.map(s=>`<button data-color-pick="${s}" style="width:14px;height:14px;border-radius:50%;background:${s}"></button>`).join("")}</div>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-soft">제목</label>
+          <input id="f-title" type="text" value="${esc(f.title)}" placeholder="예: 수학 3단원 익힘책 풀기" class="w-full rounded-md px-3 py-2 text-sm mt-1 outline-none border" />
+        </div>
+        <div class="flex gap-2">
+          <div class="flex-1">
+            <label class="text-xs text-soft">시작일</label>
+            <input id="f-start" type="date" value="${f.startDate}" min="${MIN_DATE_STR}" max="${MAX_DATE_STR}" class="w-full rounded-md px-2 py-2 text-sm mt-1 outline-none border" />
+          </div>
+          <div class="flex-1">
+            <label class="text-xs text-soft">종료일</label>
+            <input id="f-end" type="date" value="${f.endDate}" min="${f.startDate}" max="${MAX_DATE_STR}" class="w-full rounded-md px-2 py-2 text-sm mt-1 outline-none border" />
+          </div>
+        </div>
+        <div>
+          <button id="f-time-toggle" class="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md font-bold" style="background:${f.hasTime?'#2E3153':'var(--bg-soft)'};color:${f.hasTime?'#fff':'var(--text-soft)'}">🕐 시간 설정 ${f.hasTime?"끄기":"켜기"}</button>
+          <button id="f-dday-toggle" class="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md font-bold ml-1.5" style="background:${f.showAsDday?'#2E3153':'var(--bg-soft)'};color:${f.showAsDday?'#fff':'var(--text-soft)'}">🔥 디데이로 등록 ${f.showAsDday?"끄기":"켜기"}</button>
+          <p class="text-[10px] text-faint mt-1">켜면 시작일을 기준으로 상단 디데이 목록에도 함께 표시돼요. 기간 중에는 "진행중"으로 보여요.</p>
+          <div id="time-fields" class="flex gap-2 mt-2" style="display:${f.hasTime?'flex':'none'}">
+            <div class="flex-1"><label class="text-xs text-soft">시작 시간</label>
+              <input id="f-stime" type="time" value="${f.startTime}" class="w-full rounded-md px-2 py-2 text-sm mt-1 outline-none border" /></div>
+            <div class="flex-1"><label class="text-xs text-soft">종료 시간(선택)</label>
+              <input id="f-etime" type="time" value="${f.endTime}" class="w-full rounded-md px-2 py-2 text-sm mt-1 outline-none border" /></div>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-soft">부연설명 (선택)</label>
+          <input id="f-desc" type="text" value="${esc(f.description||'')}" placeholder="예: 23일- 재량휴업일 / 24-26일 - 추석연휴" class="w-full rounded-md px-3 py-2 text-sm mt-1 outline-none border" />
+        </div>
+        <div>
+          <label class="text-xs text-soft">메모 (선택)</label>
+          <textarea id="f-memo" rows="2" placeholder="추가로 안내할 내용이 있다면 적어주세요" class="w-full rounded-md px-3 py-2 text-sm mt-1 outline-none resize-none border">${esc(f.memo)}</textarea>
+        </div>
+        <button id="f-submit" class="w-full mt-1 rounded-md py-2.5 text-sm text-white font-bold" style="background:#2E3153">${f.id?"수정 완료":"저장하기"}</button>
+      </div>
+    </div>
+  </div>`;
+  bindEventFormListeners();
+}
+function bindEventFormListeners(){
+  document.querySelectorAll(".cat-btn").forEach(btn=>{
+    btn.onclick = ()=>{
+      FORM.category = btn.dataset.cat;
+      FORM.color = btn.dataset.color;
+      renderEventFormPreserving();
+    };
+  });
+  document.querySelectorAll("[data-emoji-pick]").forEach(btn=>{
+    btn.onclick = ()=>{ document.getElementById("f-emoji").value = btn.dataset.emojiPick; };
+  });
+  document.querySelectorAll("[data-color-pick]").forEach(btn=>{
+    btn.onclick = ()=>{ document.getElementById("f-color").value = btn.dataset.colorPick; };
+  });
+  document.getElementById("f-start").onchange = (e)=>{
+    const endInput = document.getElementById("f-end");
+    endInput.min = e.target.value;
+    if (endInput.value < e.target.value) endInput.value = e.target.value;
+  };
+  document.getElementById("f-time-toggle").onclick = ()=>{
+    FORM.hasTime = !FORM.hasTime;
+    const box = document.getElementById("time-fields");
+    box.style.display = FORM.hasTime ? "flex" : "none";
+    const btn = document.getElementById("f-time-toggle");
+    btn.style.background = FORM.hasTime ? "#2E3153" : "var(--bg-soft)";
+    btn.style.color = FORM.hasTime ? "#fff" : "var(--text-soft)";
+    btn.textContent = `🕐 시간 설정 ${FORM.hasTime?"끄기":"켜기"}`;
+  };
+  document.getElementById("f-dday-toggle").onclick = ()=>{
+    FORM.showAsDday = !FORM.showAsDday;
+    const btn = document.getElementById("f-dday-toggle");
+    btn.style.background = FORM.showAsDday ? "#2E3153" : "var(--bg-soft)";
+    btn.style.color = FORM.showAsDday ? "#fff" : "var(--text-soft)";
+    btn.textContent = `🔥 디데이로 등록 ${FORM.showAsDday?"끄기":"켜기"}`;
+  };
+  document.getElementById("f-submit").onclick = submitEventForm;
+}
+function renderEventFormPreserving(){
+  FORM.title = document.getElementById("f-title").value;
+  FORM.emoji = document.getElementById("f-emoji").value;
+  FORM.description = document.getElementById("f-desc").value;
+  FORM.memo = document.getElementById("f-memo").value;
+  FORM.startDate = document.getElementById("f-start").value;
+  FORM.endDate = document.getElementById("f-end").value;
+  const st = document.getElementById("f-stime");
+  const et = document.getElementById("f-etime");
+  if (st) FORM.startTime = st.value;
+  if (et) FORM.endTime = et.value;
+  renderEventForm();
+}
+function submitEventForm(){
+  const title = document.getElementById("f-title").value.trim();
+  const startDate = document.getElementById("f-start").value;
+  const endDate = document.getElementById("f-end").value;
+  if (!title){ showToast("제목을 입력해 주세요"); return; }
+  if (endDate < startDate){ showToast("종료일이 시작일보다 빠를 수 없어요"); return; }
+  const payload = {
+    id: FORM.id || uid(),
+    title,
+    emoji: document.getElementById("f-emoji").value,
+    category: FORM.category,
+    color: document.getElementById("f-color").value,
+    startDate, endDate,
+    hasTime: FORM.hasTime,
+    startTime: document.getElementById("f-stime") ? document.getElementById("f-stime").value : "09:00",
+    endTime: document.getElementById("f-etime") ? document.getElementById("f-etime").value : "",
+    description: document.getElementById("f-desc").value,
+    memo: document.getElementById("f-memo").value,
+    showAsDday: !!FORM.showAsDday,
+  };
+  if (FORM.id) S.events = S.events.map(ev=> ev.id===FORM.id ? payload : ev);
+  else S.events = [...S.events, payload];
+  saveToServer();
+  closeModal();
+  render();
+  showToast(FORM.id ? "일정을 수정했어요" : "일정을 추가했어요");
+}
+
+/* ---- 디데이 관리 모달 ---- */
+let DFORM = null;
+function openDdayManage(){ DFORM = null; renderDdayManage(); }
+function renderDdayManage(){
+  const sorted = [...S.ddays].sort((a,b)=> a.startDate<b.startDate?-1:1);
+  const f = DFORM || { title:"", emoji:"", color:SWATCHES[0], isRange:false, startDate:S.selectedDate, endDate:S.selectedDate };
+  document.getElementById("modal-root").innerHTML = `
+  <div class="fixed inset-0 flex items-end sm:items-center justify-center z-50" style="background:rgba(0,0,0,0.45)">
+    <div class="rounded-t-2xl sm:rounded-xl p-5 w-full max-w-md overflow-y-auto surface border border-base" style="max-height:88vh">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-base">디데이 관리</h3>
+        <button data-action="close-modal" class="text-soft">✕</button>
+      </div>
+      ${sorted.length>0 ? `<ul class="flex flex-col gap-1.5 mb-4">${sorted.map(item=>`
+        <li class="rounded-md px-3 py-2 flex items-center justify-between surface-soft" style="border-left:4px solid ${item.color}">
+          <span class="text-sm truncate text-base">${esc(item.emoji)} ${esc(item.title)} <span class="text-xs text-faint">· ${item.startDate===item.endDate?item.startDate:`${item.startDate} ~ ${item.endDate}`}</span></span>
+          <div class="flex gap-1 flex-shrink-0">
+            <button data-dday-edit="${item.id}" class="p-1.5 rounded-md surface">✎</button>
+            ${S.confirmDeleteDdayId===item.id
+              ? `<button data-dday-delete="${item.id}" class="p-1.5 rounded-md text-white text-[10px] px-2" style="background:#B23A32">확인</button>`
+              : `<button data-dday-confirm-delete="${item.id}" class="p-1.5 rounded-md surface">🗑</button>`}
+          </div>
+        </li>`).join("")}</ul>` : ""}
+      <div class="flex flex-col gap-3 pt-3 border-t border-base">
+        <p class="text-xs font-bold text-soft">${f.id?"디데이 수정":"새 디데이 추가"}</p>
+        <div class="flex gap-2">
+          <input id="d-emoji" type="text" value="${esc(f.emoji)}" placeholder="🏆" class="rounded-md px-3 py-2 text-sm outline-none border" style="width:56px" />
+          <input id="d-title" type="text" value="${esc(f.title)}" placeholder="예: 체육대회" class="flex-1 rounded-md px-3 py-2 text-sm outline-none border" />
+        </div>
+        <div>
+          <label class="text-xs text-soft">색상</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input id="d-color" type="color" value="${f.color}" class="h-9 border rounded-md" style="width:44px" />
+            <div class="flex flex-wrap gap-1">${SWATCHES.map(s=>`<button data-dcolor-pick="${s}" style="width:14px;height:14px;border-radius:50%;background:${s}"></button>`).join("")}</div>
+          </div>
+        </div>
+        <div><button id="d-range-toggle" class="text-xs px-2.5 py-1.5 rounded-md font-bold" style="background:${f.isRange?'#2E3153':'var(--bg-soft)'};color:${f.isRange?'#fff':'var(--text-soft)'}">기간 설정 ${f.isRange?"끄기":"켜기"}</button></div>
+        <div id="d-single" style="display:${f.isRange?'none':'block'}">
+          <label class="text-xs text-soft">날짜</label>
+          <input id="d-start-single" type="date" value="${f.startDate}" min="${MIN_DATE_STR}" max="${MAX_DATE_STR}" class="w-full rounded-md px-3 py-2 text-sm mt-1 outline-none border" />
+        </div>
+        <div id="d-range" class="flex gap-2" style="display:${f.isRange?'flex':'none'}">
+          <div class="flex-1"><label class="text-xs text-soft">며칠부터 (D-day 기준일)</label>
+            <input id="d-start-range" type="date" value="${f.startDate}" min="${MIN_DATE_STR}" max="${MAX_DATE_STR}" class="w-full rounded-md px-2 py-2 text-sm mt-1 outline-none border" /></div>
+          <div class="flex-1"><label class="text-xs text-soft">며칠까지</label>
+            <input id="d-end-range" type="date" value="${f.endDate}" min="${f.startDate}" max="${MAX_DATE_STR}" class="w-full rounded-md px-2 py-2 text-sm mt-1 outline-none border" /></div>
+        </div>
+        <div class="flex gap-2">
+          ${f.id ? `<button id="d-cancel" class="flex-1 rounded-md py-2.5 text-sm font-bold surface-soft text-soft">취소</button>` : ""}
+          <button id="d-submit" class="flex-1 rounded-md py-2.5 text-sm text-white font-bold" style="background:#2E3153">${f.id?"수정 완료":"추가하기"}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  bindDdayFormListeners();
+}
+function bindDdayFormListeners(){
+  document.querySelectorAll("[data-dday-edit]").forEach(btn=>{
+    btn.onclick = ()=>{ const item = S.ddays.find(d=>d.id===btn.dataset.ddayEdit); DFORM = { ...item, isRange: item.startDate!==item.endDate }; renderDdayManage(); };
+  });
+  document.querySelectorAll("[data-dday-confirm-delete]").forEach(btn=>{
+    btn.onclick = ()=>{ S.confirmDeleteDdayId = btn.dataset.ddayConfirmDelete; renderDdayManage(); };
+  });
+  document.querySelectorAll("[data-dday-delete]").forEach(btn=>{
+    btn.onclick = ()=>{ S.ddays = S.ddays.filter(d=>d.id!==btn.dataset.ddayDelete); saveToServer(); S.confirmDeleteDdayId=null; renderDdayManage(); render(); showToast("디데이를 삭제했어요"); };
+  });
+  document.querySelectorAll("[data-dcolor-pick]").forEach(btn=>{
+    btn.onclick = ()=>{ document.getElementById("d-color").value = btn.dataset.dcolorPick; };
+  });
+  const rangeToggle = document.getElementById("d-range-toggle");
+  let isRange = document.getElementById("d-range").style.display !== "none";
+  rangeToggle.onclick = ()=>{
+    isRange = !isRange;
+    document.getElementById("d-single").style.display = isRange ? "none" : "block";
+    document.getElementById("d-range").style.display = isRange ? "flex" : "none";
+    rangeToggle.style.background = isRange ? "#2E3153" : "var(--bg-soft)";
+    rangeToggle.style.color = isRange ? "#fff" : "var(--text-soft)";
+    rangeToggle.textContent = `기간 설정 ${isRange?"끄기":"켜기"}`;
+    if (isRange) document.getElementById("d-start-range").value = document.getElementById("d-start-single").value;
+    else document.getElementById("d-start-single").value = document.getElementById("d-start-range").value;
+  };
+  document.getElementById("d-start-range").onchange = (e)=>{
+    const endInput = document.getElementById("d-end-range");
+    endInput.min = e.target.value;
+    if (endInput.value < e.target.value) endInput.value = e.target.value;
+  };
+  const cancelBtn = document.getElementById("d-cancel");
+  if (cancelBtn) cancelBtn.onclick = ()=>{ DFORM=null; renderDdayManage(); };
+  document.getElementById("d-submit").onclick = ()=>{
+    const title = document.getElementById("d-title").value.trim();
+    const startDate = isRange ? document.getElementById("d-start-range").value : document.getElementById("d-start-single").value;
+    const endDate = isRange ? document.getElementById("d-end-range").value : startDate;
+    if (!title || !startDate){ showToast("제목과 날짜를 입력해 주세요"); return; }
+    if (endDate < startDate){ showToast("종료일이 시작일보다 빠를 수 없어요"); return; }
+    const payload = { title, emoji: document.getElementById("d-emoji").value, color: document.getElementById("d-color").value, startDate, endDate };
+    if (DFORM && DFORM.id) S.ddays = S.ddays.map(d=> d.id===DFORM.id ? { ...payload, id:DFORM.id } : d);
+    else S.ddays = [...S.ddays, { ...payload, id: uid() }];
+    saveToServer();
+    DFORM = null;
+    renderDdayManage();
+    render();
+    showToast("저장했어요");
+  };
+}
+
+/* ---- 빨간날 관리 모달 ---- */
+let RFORM = null;
+function openRedDayManage(){ RFORM = null; renderRedDayManage(); }
+function renderRedDayManage(){
+  const sorted = [...S.redDays].sort((a,b)=> a.date<b.date?-1:1);
+  const f = RFORM || { label:"", date:S.selectedDate };
+  document.getElementById("modal-root").innerHTML = `
+  <div class="fixed inset-0 flex items-end sm:items-center justify-center z-50" style="background:rgba(0,0,0,0.45)">
+    <div class="rounded-t-2xl sm:rounded-xl p-5 w-full max-w-md overflow-y-auto surface border border-base" style="max-height:88vh">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-base">빨간날 관리</h3>
+        <button data-action="close-modal" class="text-soft">✕</button>
+      </div>
+      <button id="add-holidays" class="w-full mb-3 rounded-md py-2 text-xs font-bold surface-soft text-soft border border-base">🇰🇷 대한민국 법정 공휴일 자동 추가</button>
+      <p class="text-[11px] text-faint mb-3">달력에는 법정 공휴일이 항상 기본으로 빨갛게 표시돼요. 위 버튼은 그 목록을 직접 수정하고 싶을 때, 편집 가능한 목록으로 복사해와요.</p>
+      ${sorted.length>0 ? `<ul class="flex flex-col gap-1.5 mb-4">${sorted.map(item=>`
+        <li class="rounded-md px-3 py-2 flex items-center justify-between surface-soft">
+          <span class="text-sm truncate text-base">${esc(item.label)} <span class="text-xs text-faint">· ${item.date}</span></span>
+          <div class="flex gap-1 flex-shrink-0">
+            <button data-red-edit="${item.id}" class="p-1.5 rounded-md surface">✎</button>
+            ${S.confirmDeleteRedId===item.id
+              ? `<button data-red-delete="${item.id}" class="p-1.5 rounded-md text-white text-[10px] px-2" style="background:#B23A32">확인</button>`
+              : `<button data-red-confirm-delete="${item.id}" class="p-1.5 rounded-md surface">🗑</button>`}
+          </div>
+        </li>`).join("")}</ul>` : `<p class="text-xs text-faint mb-4">직접 추가한 빨간날이 없어요.</p>`}
+      <div class="flex flex-col gap-3 pt-3 border-t border-base">
+        <p class="text-xs font-bold text-soft">${f.id?"빨간날 수정":"새 빨간날 추가"}</p>
+        <input id="r-label" type="text" value="${esc(f.label)}" placeholder="예: 학교 창립기념일" class="w-full rounded-md px-3 py-2 text-sm outline-none border" />
+        <input id="r-date" type="date" value="${f.date}" min="${MIN_DATE_STR}" max="${MAX_DATE_STR}" class="w-full rounded-md px-3 py-2 text-sm outline-none border" />
+        <div class="flex gap-2">
+          ${f.id ? `<button id="r-cancel" class="flex-1 rounded-md py-2.5 text-sm font-bold surface-soft text-soft">취소</button>` : ""}
+          <button id="r-submit" class="flex-1 rounded-md py-2.5 text-sm text-white font-bold" style="background:#2E3153">${f.id?"수정 완료":"추가하기"}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  bindRedDayListeners();
+}
+function bindRedDayListeners(){
+  document.getElementById("add-holidays").onclick = ()=>{
+    const existing = new Set(S.redDays.map(r=>r.date));
+    const toAdd = BUILTIN_HOLIDAYS.filter(h=>!existing.has(h.date)).map(h=>({ id: uid(), label:h.label, date:h.date }));
+    S.redDays = [...S.redDays, ...toAdd];
+    saveToServer();
+    renderRedDayManage();
+    render();
+    showToast(toAdd.length>0 ? `${toAdd.length}개 추가했어요` : "이미 모두 추가되어 있어요");
+  };
+  document.querySelectorAll("[data-red-edit]").forEach(btn=>{
+    btn.onclick = ()=>{ const item = S.redDays.find(r=>r.id===btn.dataset.redEdit); RFORM = { ...item }; renderRedDayManage(); };
+  });
+  document.querySelectorAll("[data-red-confirm-delete]").forEach(btn=>{
+    btn.onclick = ()=>{ S.confirmDeleteRedId = btn.dataset.redConfirmDelete; renderRedDayManage(); };
+  });
+  document.querySelectorAll("[data-red-delete]").forEach(btn=>{
+    btn.onclick = ()=>{ S.redDays = S.redDays.filter(r=>r.id!==btn.dataset.redDelete); saveToServer(); S.confirmDeleteRedId=null; renderRedDayManage(); render(); showToast("삭제했어요"); };
+  });
+  const cancelBtn = document.getElementById("r-cancel");
+  if (cancelBtn) cancelBtn.onclick = ()=>{ RFORM=null; renderRedDayManage(); };
+  document.getElementById("r-submit").onclick = ()=>{
+    const label = document.getElementById("r-label").value.trim();
+    const date = document.getElementById("r-date").value;
+    if (!label || !date){ showToast("이름과 날짜를 입력해 주세요"); return; }
+    const payload = { label, date };
+    if (RFORM && RFORM.id) S.redDays = S.redDays.map(r=> r.id===RFORM.id ? { ...payload, id:RFORM.id } : r);
+    else S.redDays = [...S.redDays, { ...payload, id: uid() }];
+    saveToServer();
+    RFORM = null;
+    renderRedDayManage();
+    render();
+    showToast("저장했어요");
+  };
+}
+
+/* ---- 구분(카테고리) 관리 모달 ---- */
+let CFORM = null;
+function openCategoryManage(){ CFORM = null; renderCategoryManage(); }
+function renderCategoryManage(){
+  const f = CFORM || { label:"", color:SWATCHES[0] };
+  document.getElementById("modal-root").innerHTML = `
+  <div class="fixed inset-0 flex items-end sm:items-center justify-center z-50" style="background:rgba(0,0,0,0.45)">
+    <div class="rounded-t-2xl sm:rounded-xl p-5 w-full max-w-md overflow-y-auto surface border border-base" style="max-height:88vh">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-base">구분 관리</h3>
+        <button data-action="close-modal" class="text-soft">✕</button>
+      </div>
+      ${S.categories.length>0 ? `<ul class="flex flex-col gap-1.5 mb-4">${S.categories.map(c=>{
+        const tone = tagStyle(c.color, S.theme);
+        return `<li class="rounded-md px-3 py-2 flex items-center justify-between surface-soft">
+          <span class="text-xs px-2 py-0.5 rounded-full font-bold" style="background:${tone.bg};color:${tone.text}">${esc(c.label)}</span>
+          <div class="flex gap-1 flex-shrink-0">
+            <button data-cat-edit="${c.key}" class="p-1.5 rounded-md surface">✎</button>
+            ${S.confirmDeleteCatId===c.key
+              ? `<button data-cat-delete="${c.key}" class="p-1.5 rounded-md text-white text-[10px] px-2" style="background:#B23A32">확인</button>`
+              : `<button data-cat-confirm-delete="${c.key}" class="p-1.5 rounded-md surface">🗑</button>`}
+          </div>
+        </li>`;
+      }).join("")}</ul>` : `<p class="text-xs text-faint mb-4">등록된 구분이 없어요.</p>`}
+      <div class="flex flex-col gap-3 pt-3 border-t border-base">
+        <p class="text-xs font-bold text-soft">${f.key?"구분 수정":"새 구분 추가"}</p>
+        <input id="c-label" type="text" value="${esc(f.label)}" placeholder="예: 모의고사" class="w-full rounded-md px-3 py-2 text-sm outline-none border" />
+        <div>
+          <label class="text-xs text-soft">색상</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input id="c-color" type="color" value="${f.color}" class="h-9 border rounded-md" style="width:44px" />
+            <div class="flex flex-wrap gap-1">${SWATCHES.map(s=>`<button data-ccolor-pick="${s}" style="width:14px;height:14px;border-radius:50%;background:${s}"></button>`).join("")}</div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          ${f.key ? `<button id="c-cancel" class="flex-1 rounded-md py-2.5 text-sm font-bold surface-soft text-soft">취소</button>` : ""}
+          <button id="c-submit" class="flex-1 rounded-md py-2.5 text-sm text-white font-bold" style="background:#2E3153">${f.key?"수정 완료":"추가하기"}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  bindCategoryListeners();
+}
+function bindCategoryListeners(){
+  document.querySelectorAll("[data-cat-edit]").forEach(btn=>{
+    btn.onclick = ()=>{ const item = S.categories.find(c=>c.key===btn.dataset.catEdit); CFORM = { ...item }; renderCategoryManage(); };
+  });
+  document.querySelectorAll("[data-cat-confirm-delete]").forEach(btn=>{
+    btn.onclick = ()=>{ S.confirmDeleteCatId = btn.dataset.catConfirmDelete; renderCategoryManage(); };
+  });
+  document.querySelectorAll("[data-cat-delete]").forEach(btn=>{
+    btn.onclick = ()=>{ S.categories = S.categories.filter(c=>c.key!==btn.dataset.catDelete); saveToServer(); S.confirmDeleteCatId=null; renderCategoryManage(); render(); showToast("삭제했어요"); };
+  });
+  document.querySelectorAll("[data-ccolor-pick]").forEach(btn=>{
+    btn.onclick = ()=>{ document.getElementById("c-color").value = btn.dataset.ccolorPick; };
+  });
+  const cancelBtn = document.getElementById("c-cancel");
+  if (cancelBtn) cancelBtn.onclick = ()=>{ CFORM=null; renderCategoryManage(); };
+  document.getElementById("c-submit").onclick = ()=>{
+    const label = document.getElementById("c-label").value.trim();
+    const color = document.getElementById("c-color").value;
+    if (!label){ showToast("이름을 입력해 주세요"); return; }
+    if (CFORM && CFORM.key) S.categories = S.categories.map(c=> c.key===CFORM.key ? { ...c, label, color } : c);
+    else S.categories = [...S.categories, { key: uid(), label, color }];
+    saveToServer();
+    CFORM = null;
+    renderCategoryManage();
+    render();
+    showToast("저장했어요");
+  };
+}
+
+/* ---- 배너(고정 알림) 관리 모달 ---- */
+function openBannerManage(){
+  document.getElementById("modal-root").innerHTML = `
+  <div class="fixed inset-0 flex items-center justify-center px-6 z-50" style="background:rgba(0,0,0,0.45)">
+    <div class="rounded-xl p-5 w-full max-w-md surface border border-base">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base font-bold text-base">📌 알림 배너 편집</h3>
+        <button data-action="close-modal" class="text-soft">✕</button>
+      </div>
+      <p class="text-[11px] text-faint mb-2">한 줄에 하나씩 입력하면 각 줄이 알림 목록의 항목이 돼요.</p>
+      <textarea id="banner-text" rows="6" placeholder="예: 시간표 변경 (화)사회 ↔ (목)과탐&#10;화학 수행 추석 전 주, 과탐실 수행 9월 1주" class="w-full rounded-md px-3 py-2 text-sm outline-none border resize-none">${esc(S.banner.lines.join("\n"))}</textarea>
+      <button id="banner-submit" class="w-full mt-3 rounded-md py-2 text-sm text-white font-bold" style="background:#2E3153">저장하기</button>
+    </div>
+  </div>`;
+  document.getElementById("banner-submit").onclick = ()=>{
+    const lines = document.getElementById("banner-text").value.split("\n").map(l=>l.trim()).filter(Boolean);
+    S.banner = { lines };
+    saveToServer();
+    closeModal();
+    render();
+    showToast("알림 배너를 저장했어요");
+  };
+}
+
+/* ---- 시간표 페이지 ---- */
+function renderTimetablePage(){
+  const PERIODS = 7;
+  let rows = "";
+  for (let p=0; p<PERIODS; p++){
+    rows += `<tr>`;
+    rows += `<td class="text-xs font-bold text-center py-2 px-1 surface-soft border border-base">${p+1}교시<div class="text-[10px] font-normal text-faint">${TIMETABLE_TIMES[p]}</div></td>`;
+    for (let d=0; d<5; d++){
+      const cell = TIMETABLE[p][d];
+      if (cell === undefined) continue; // span으로 인해 이미 그려진 칸
+      if (cell === null){
+        rows += `<td class="border border-base"></td>`;
+      } else {
+        const rowspan = cell.span || 1;
+        rows += `<td class="text-center py-2 px-1 border border-base" ${rowspan>1?`rowspan="${rowspan}"`:""} style="word-break:keep-all">
+          <div class="text-sm font-bold text-base">${esc(cell.s)}</div>
+          ${cell.t?`<div class="text-[10px] text-faint mt-0.5" style="white-space:normal;line-height:1.3">${esc(cell.t)}</div>`:""}
+        </td>`;
+      }
+    }
+    rows += `</tr>`;
+  }
+  return `<div class="max-w-2xl mx-auto px-5">
+    <h2 class="text-base font-bold mb-3 text-base">2026년 1학년 4반 시간표</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse" style="min-width:480px;table-layout:fixed">
+        <colgroup>
+          <col style="width:64px" />
+          ${TIMETABLE_DAYS.map(()=>`<col style="width:auto" />`).join("")}
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="text-xs py-2 px-1 surface-soft border border-base"></th>
+            ${TIMETABLE_DAYS.map(d=>`<th class="text-xs font-bold py-2 px-1 surface-soft border border-base">${d}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+// TIMETABLE에서 금요일 5교시 span=2 칸 바로 다음(6교시, 금요일)은 렌더링에서 건너뛰도록 표시
+(function markSpannedCells(){
+  for (let p=0;p<TIMETABLE.length;p++){
+    for (let d=0; d<5; d++){
+      const cell = TIMETABLE[p][d];
+      if (cell && cell.span > 1){
+        for (let k=1; k<cell.span; k++){
+          if (TIMETABLE[p+k]) TIMETABLE[p+k][d] = undefined;
+        }
+      }
+    }
+  }
+})();
+
+/* ---- 급식 페이지 ---- */
+function renderMealPage(){
+  const d = parseDate(S.mealDate);
+  const label = `${d.getMonth()+1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
+  let body;
+  if (S.mealLoading){
+    body = `<p class="text-sm text-faint text-center py-10">불러오는 중...</p>`;
+  } else if (S.mealError){
+    body = `<div class="text-sm text-center py-10 text-faint">
+      급식 정보를 불러오지 못했어요.<br/>
+      <a href="https://asgs-h.goeas.kr/asgs-h/main.do" target="_blank" class="underline" style="color:#3E76A0">학교 홈페이지에서 확인하기 →</a>
+    </div>`;
+  } else if (!S.mealRows || S.mealRows.length===0){
+    body = `<p class="text-sm text-faint text-center py-10">이 날짜엔 등록된 급식 정보가 없어요.</p>`;
+  } else {
+    body = S.mealRows.map(r=>`
+      <div class="rounded-lg p-3 mb-2 surface border border-base" style="box-shadow:var(--shadow)">
+        <div class="text-xs font-bold px-2 py-0.5 rounded-full inline-block mb-1.5" style="background:var(--bg-soft);color:var(--text-soft)">${esc(r.name)}</div>
+        <div class="text-sm text-base" style="white-space:pre-line">${esc(r.dish)}</div>
+      </div>`).join("");
+  }
+  return `<div class="max-w-2xl mx-auto px-5">
+    <h2 class="text-base font-bold mb-3 text-base">🍚 급식</h2>
+    <div class="flex items-center justify-center gap-4 mb-4">
+      <button data-action="meal-prev-day" class="p-1.5 rounded-full surface-soft border border-base">‹</button>
+      <button data-action="meal-today" class="text-sm font-bold text-base">${label}</button>
+      <button data-action="meal-next-day" class="p-1.5 rounded-full surface-soft border border-base">›</button>
+    </div>
+    ${body}
+    <p class="text-[11px] text-faint text-center mt-3">NEIS 교육정보 개방 포털 제공</p>
+  </div>`;
+}
+
+/* ---- 사진: imgbb.com에 업로드 (jsonbin 용량 문제 해결, 화질 그대로) ---- */
+const IMGBB_API_KEY = "a2fb55fe076454eca781d71e779ca46b";
+async function uploadToImgbb(file){
+  const formData = new FormData();
+  formData.append("image", file);
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error("업로드 실패");
+  const data = await res.json();
+  if (!data.success) throw new Error("업로드 실패");
+  return data.data.url;
+}
+
+/* ---- 게시판 페이지 ---- */
+function getPostCategory(key){
+  return S.postCategories.find(c=>c.key===key) || { key:key||"", label:key||"기타", color:"#9b9a97" };
+}
+function renderBoardPage(){
+  if (S.selectedPostId){
+    const post = S.posts.find(p=>p.id===S.selectedPostId);
+    if (!post) { S.selectedPostId = null; return renderBoardPage(); }
+    const cat = getPostCategory(post.category);
+    const tone = tagStyle(cat.color, S.theme);
+    return `<div class="max-w-2xl mx-auto px-5">
+      <button data-action="back-to-board-list" class="text-sm text-soft mb-3">‹ 목록으로</button>
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xs px-2 py-0.5 rounded-full font-bold" style="background:${tone.bg};color:${tone.text}">${esc(cat.label)}</span>
+        <span class="text-xs text-faint">${post.date}</span>
+      </div>
+      <h2 class="text-lg font-bold mb-3 text-base">${esc(post.title)}</h2>
+      ${(post.images||[]).map(src=>`<img src="${src}" class="w-full rounded-lg mb-2 border border-base" />`).join("")}
+      <p class="text-sm mt-2 text-base" style="white-space:pre-line">${esc(post.description)}</p>
+      ${post.link ? `<a href="${esc(post.link)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 mt-3 px-3 py-1.5 rounded-md text-xs font-bold text-white" style="background:#3E76A0">🔗 바로가기</a>` : ""}
+      ${S.isAdmin ? `<div class="flex gap-2 mt-4">
+        <button data-action="open-edit-post" data-id="${post.id}" class="px-3 py-1.5 rounded-md text-xs font-bold surface-soft text-soft">✎ 수정</button>
+        ${S.confirmDeletePostId===post.id
+          ? `<button data-action="delete-post" data-id="${post.id}" class="px-3 py-1.5 rounded-md text-xs font-bold text-white" style="background:#B23A32">삭제 확인</button>`
+          : `<button data-action="confirm-delete-post" data-id="${post.id}" class="px-3 py-1.5 rounded-md text-xs font-bold surface-soft text-soft">🗑 삭제</button>`}
+      </div>` : ""}
+    </div>`;
+  }
+  const filterPills = `
+    <button data-action="board-filter" class="text-xs px-2.5 py-1 rounded-full font-bold flex-shrink-0" style="background:${S.boardFilter===null?'#2E3153':'var(--bg-soft)'};color:${S.boardFilter===null?'#fff':'var(--text-soft)'}">전체</button>
+    ${S.postCategories.map(c=>{
+      const tone = tagStyle(c.color, S.theme);
+      const active = S.boardFilter===c.key;
+      return `<button data-action="board-filter" data-cat="${c.key}" class="text-xs px-2.5 py-1 rounded-full font-bold flex-shrink-0" style="background:${active?'#2E3153':tone.bg};color:${active?'#fff':tone.text}">${esc(c.label)}</button>`;
+    }).join("")}
+  `;
+  return `<div class="max-w-2xl mx-auto px-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-base font-bold text-base">📋 게시판</h2>
+      ${S.isAdmin ? `<button data-action="open-add-post" class="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full text-white" style="background:#2E3153">＋ 글쓰기</button>` : ""}
+    </div>
+    <input id="board-search" type="text" value="${esc(S.boardSearch)}" placeholder="제목·내용 검색" class="w-full rounded-md px-3 py-2 text-sm mb-2 outline-none border" />
+    <div class="flex items-center justify-between mb-3 gap-2">
+      <div class="flex gap-1.5 overflow-x-auto">${filterPills}</div>
+      <button data-action="board-sort-toggle" class="text-[11px] px-2 py-1 rounded-md flex-shrink-0 surface-soft text-soft">${S.boardSort==='desc'?'최신순 ▾':'오래된순 ▴'}</button>
+    </div>
+    <div id="board-list-container">${buildBoardListHTML()}</div>
+  </div>`;
+}
+function buildBoardListHTML(){
+  let list = [...S.posts];
+  if (S.boardFilter) list = list.filter(p=>p.category===S.boardFilter);
+  const q = (S.boardSearch||"").trim().toLowerCase();
+  if (q) list = list.filter(p=> (p.title||"").toLowerCase().includes(q) || (p.description||"").toLowerCase().includes(q));
+  list.sort((a,b)=> S.boardSort==='desc' ? (b.createdAt||0)-(a.createdAt||0) : (a.createdAt||0)-(b.createdAt||0));
+  if (list.length===0) return `<p class="text-sm py-10 text-center rounded-lg surface-soft text-faint">해당하는 게시글이 없어요.</p>`;
+  return `<ul class="flex flex-col gap-2">${list.map(post=>{
+        const cat = getPostCategory(post.category);
+        const tone = tagStyle(cat.color, S.theme);
+        return `<li data-action="open-post" data-id="${post.id}" class="rounded-lg p-3 surface border border-base" style="box-shadow:var(--shadow);cursor:pointer">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background:${tone.bg};color:${tone.text}">${esc(cat.label)}</span>
+            <span class="text-[11px] text-faint">${post.date}</span>
+          </div>
+          <div class="text-sm font-bold text-base">${esc(post.title)}</div>
+          <div class="flex items-center gap-2 mt-1">
+            ${post.images && post.images.length>0 ? `<span class="text-[11px] text-faint">📷 ${post.images.length}장</span>` : ""}
+            ${post.link ? `<span class="text-[11px] text-faint">🔗 링크</span>` : ""}
+          </div>
+        </li>`;
+      }).join("")}</ul>`;
+}
+function bindBoardPageListeners(){
+  const input = document.getElementById("board-search");
+  if (input){
+    input.oninput = ()=>{
+      S.boardSearch = input.value;
+      const c = document.getElementById("board-list-container");
+      if (c) c.innerHTML = buildBoardListHTML();
+    };
+  }
+}
+
+/* ---- 게시글 작성/수정 모달 ---- */
+let PFORM = null;
+function openPostForm(post){
+  PFORM = post ? { ...post, images:[...(post.images||[])] } : {
+    id:null, title:"", category:(S.postCategories[0]?S.postCategories[0].key:""), images:[], description:"", link:"", date:todayStr, createdAt:Date.now()
+  };
+  renderPostForm();
+}
+function renderPostForm(){
+  const f = PFORM;
+  document.getElementById("modal-root").innerHTML = `
+  <div class="fixed inset-0 flex items-end sm:items-center justify-center z-50" style="background:rgba(0,0,0,0.45)">
+    <div class="rounded-t-2xl sm:rounded-xl p-5 w-full max-w-md overflow-y-auto surface border border-base" style="max-height:88vh">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-base">${f.id?"게시글 수정":"게시글 작성"}</h3>
+        <button data-action="close-modal" class="text-soft">✕</button>
+      </div>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs text-soft">유형</label>
+          <div id="pcat-buttons" class="flex flex-wrap gap-1.5 mt-1">
+            ${S.postCategories.map(c=>{
+              const tone = tagStyle(c.color, S.theme);
+              const active = f.category===c.key;
+              return `<button data-pcat="${c.key}" class="pcat-btn text-xs px-2.5 py-1.5 rounded-full font-bold" style="background:${active?'#2E3153':tone.bg};color:${active?'#fff':tone.text}">${esc(c.label)}</button>`;
+            }).join("")}
+          </div>
+          <button data-action="open-post-category-manage" class="text-[11px] underline text-soft mt-1">유형 관리</button>
+        </div>
+        <div>
+          <label class="text-xs text-soft">제목</label>
+          <input id="p-title" type="text" value="${esc(f.title)}" placeholder="예: 2학기 수행평가 안내" class="w-full rounded-md px-3 py-2 text-sm mt-1 outline-none border" />
+        </div>
+        <div>
+          <label class="text-xs text-soft">사진 (여러 장 가능)</label>
+          <input id="p-image-input" type="file" accept="image/*" multiple class="w-full text-xs mt-1" />
+          <p class="text-[10px] text-faint mt-1">사진은 원본 화질로 안전하게 별도 저장돼요. 업로드에 몇 초 걸릴 수 있어요.</p>
+          <div id="p-image-preview" class="flex flex-wrap gap-2 mt-2">
+            ${f.images.map((src,i)=>`<div class="relative" data-img-wrap="${i}"><img src="${src}" style="width:64px;height:64px;object-fit:cover;border-radius:6px" /><button data-img-remove="${i}" class="absolute text-white rounded-full flex items-center justify-center" style="top:-4px;right:-4px;width:18px;height:18px;background:#B23A32;font-size:10px">✕</button></div>`).join("")}
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-soft">설명</label>
+          <textarea id="p-desc" rows="5" placeholder="안내 내용을 입력해 주세요" class="w-full rounded-md px-3 py-2 text-sm mt-1 outline-none resize-none border">${esc(f.description)}</textarea>
+        </div>
+        <div>
+          <label class="text-xs text-soft">링크 (선택)</label>
+          <input id="p-link" type="url" value="${esc(f.link||'')}" placeholder="https://..." class="w-full rounded-md px-3 py-2 text-sm mt-1 outline-none border" />
+          <p class="text-[10px] text-faint mt-1">입력하면 게시글에 "바로가기" 버튼이 생겨요.</p>
+        </div>
+        <button id="p-submit" class="w-full mt-1 rounded-md py-2.5 text-sm text-white font-bold" style="background:#2E3153">${f.id?"수정 완료":"게시하기"}</button>
+      </div>
+    </div>
+  </div>`;
+  bindPostFormListeners();
+}
+function bindPostFormListeners(){
+  document.querySelectorAll(".pcat-btn").forEach(btn=>{
+    btn.onclick = ()=>{
+      PFORM.title = document.getElementById("p-title").value;
+      PFORM.description = document.getElementById("p-desc").value;
+      PFORM.link = document.getElementById("p-link").value;
+      PFORM.category = btn.dataset.pcat;
+      renderPostForm();
+    };
+  });
+  document.getElementById("p-image-input").addEventListener("change", async (e)=>{
+    const files = Array.from(e.target.files || []);
+    if (files.length===0) return;
+    showToast(`사진 업로드 중... (${files.length}장)`);
+    let failCount = 0;
+    for (const file of files){
+      try {
+        const url = await uploadToImgbb(file);
+        PFORM.images.push(url);
+      } catch (err){ failCount++; }
+    }
+    PFORM.title = document.getElementById("p-title").value;
+    PFORM.description = document.getElementById("p-desc").value;
+      PFORM.link = document.getElementById("p-link").value;
+    renderPostForm();
+    if (failCount>0) showToast(`⚠️ ${failCount}장 업로드 실패했어요`);
+    else showToast("업로드 완료!");
+  });
+  document.getElementById("p-image-preview").addEventListener("click", (e)=>{
+    const b = e.target.closest("[data-img-remove]");
+    if (b){
+      PFORM.images.splice(Number(b.dataset.imgRemove), 1);
+      PFORM.title = document.getElementById("p-title").value;
+      PFORM.description = document.getElementById("p-desc").value;
+      PFORM.link = document.getElementById("p-link").value;
+      renderPostForm();
+    }
+  });
+  document.getElementById("p-submit").onclick = ()=>{
+    const title = document.getElementById("p-title").value.trim();
+    const description = document.getElementById("p-desc").value;
+    if (!title){ showToast("제목을 입력해 주세요"); return; }
+    const payload = { id: PFORM.id || uid(), title, category: PFORM.category, images: PFORM.images, description, link: document.getElementById("p-link").value.trim(), date: PFORM.date || todayStr, createdAt: PFORM.createdAt || Date.now() };
+    if (PFORM.id) S.posts = S.posts.map(p=> p.id===PFORM.id ? payload : p);
+    else S.posts = [...S.posts, payload];
+    saveToServer();
+    closeModal();
+    render();
+    showToast(PFORM.id ? "게시글을 수정했어요" : "게시글을 올렸어요");
+  };
+}
+
+/* ---- 게시판 유형 관리 모달 ---- */
+let PCFORM = null;
+function openPostCategoryManage(){ PCFORM = null; renderPostCategoryManage(); }
+function renderPostCategoryManage(){
+  const f = PCFORM || { label:"", color:SWATCHES[0] };
+  document.getElementById("modal-root").innerHTML = `
+  <div class="fixed inset-0 flex items-end sm:items-center justify-center z-50" style="background:rgba(0,0,0,0.45)">
+    <div class="rounded-t-2xl sm:rounded-xl p-5 w-full max-w-md overflow-y-auto surface border border-base" style="max-height:88vh">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-base">게시판 유형 관리</h3>
+        <button data-action="close-modal" class="text-soft">✕</button>
+      </div>
+      ${S.postCategories.length>0 ? `<ul class="flex flex-col gap-1.5 mb-4">${S.postCategories.map(c=>{
+        const tone = tagStyle(c.color, S.theme);
+        return `<li class="rounded-md px-3 py-2 flex items-center justify-between surface-soft">
+          <span class="text-xs px-2 py-0.5 rounded-full font-bold" style="background:${tone.bg};color:${tone.text}">${esc(c.label)}</span>
+          <div class="flex gap-1 flex-shrink-0">
+            <button data-pcat-edit="${c.key}" class="p-1.5 rounded-md surface">✎</button>
+            ${S.confirmDeletePcatId===c.key
+              ? `<button data-pcat-delete="${c.key}" class="p-1.5 rounded-md text-white text-[10px] px-2" style="background:#B23A32">확인</button>`
+              : `<button data-pcat-confirm-delete="${c.key}" class="p-1.5 rounded-md surface">🗑</button>`}
+          </div>
+        </li>`;
+      }).join("")}</ul>` : `<p class="text-xs text-faint mb-4">등록된 유형이 없어요.</p>`}
+      <div class="flex flex-col gap-3 pt-3 border-t border-base">
+        <p class="text-xs font-bold text-soft">${f.key?"유형 수정":"새 유형 추가"}</p>
+        <input id="pc-label" type="text" value="${esc(f.label)}" placeholder="예: 수행평가 안내문" class="w-full rounded-md px-3 py-2 text-sm outline-none border" />
+        <div>
+          <label class="text-xs text-soft">색상</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input id="pc-color" type="color" value="${f.color}" class="h-9 border rounded-md" style="width:44px" />
+            <div class="flex flex-wrap gap-1">${SWATCHES.map(s=>`<button data-pccolor-pick="${s}" style="width:14px;height:14px;border-radius:50%;background:${s}"></button>`).join("")}</div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          ${f.key ? `<button id="pc-cancel" class="flex-1 rounded-md py-2.5 text-sm font-bold surface-soft text-soft">취소</button>` : ""}
+          <button id="pc-submit" class="flex-1 rounded-md py-2.5 text-sm text-white font-bold" style="background:#2E3153">${f.key?"수정 완료":"추가하기"}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  bindPostCategoryListeners();
+}
+function bindPostCategoryListeners(){
+  document.querySelectorAll("[data-pcat-edit]").forEach(btn=>{
+    btn.onclick = ()=>{ const item = S.postCategories.find(c=>c.key===btn.dataset.pcatEdit); PCFORM = { ...item }; renderPostCategoryManage(); };
+  });
+  document.querySelectorAll("[data-pcat-confirm-delete]").forEach(btn=>{
+    btn.onclick = ()=>{ S.confirmDeletePcatId = btn.dataset.pcatConfirmDelete; renderPostCategoryManage(); };
+  });
+  document.querySelectorAll("[data-pcat-delete]").forEach(btn=>{
+    btn.onclick = ()=>{ S.postCategories = S.postCategories.filter(c=>c.key!==btn.dataset.pcatDelete); saveToServer(); S.confirmDeletePcatId=null; renderPostCategoryManage(); showToast("삭제했어요"); };
+  });
+  document.querySelectorAll("[data-pccolor-pick]").forEach(btn=>{
+    btn.onclick = ()=>{ document.getElementById("pc-color").value = btn.dataset.pccolorPick; };
+  });
+  const cancelBtn = document.getElementById("pc-cancel");
+  if (cancelBtn) cancelBtn.onclick = ()=>{ PCFORM=null; renderPostCategoryManage(); };
+  document.getElementById("pc-submit").onclick = ()=>{
+    const label = document.getElementById("pc-label").value.trim();
+    const color = document.getElementById("pc-color").value;
+    if (!label){ showToast("이름을 입력해 주세요"); return; }
+    if (PCFORM && PCFORM.key) S.postCategories = S.postCategories.map(c=> c.key===PCFORM.key ? { ...c, label, color } : c);
+    else S.postCategories = [...S.postCategories, { key: uid(), label, color }];
+    saveToServer();
+    PCFORM = null;
+    renderPostCategoryManage();
+    showToast("저장했어요");
+  };
+}
+
+/* ---- 시작 ---- */
+loadFromServer();
+</script>
+</body>
+</html>
