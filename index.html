@@ -338,7 +338,9 @@ function render(){
   const atMin = S.viewYear===RANGE_MIN.y && S.viewMonth===RANGE_MIN.m;
   const atMax = S.viewYear===RANGE_MAX.y && S.viewMonth===RANGE_MAX.m;
   const eventDdays = S.events.filter(ev=>ev.showAsDday).map(ev=>({ id:"evd-"+ev.id, title:ev.title, emoji:ev.emoji, color:ev.color, startDate:ev.startDate, endDate:ev.endDate }));
-  const ddaySorted = [...eventDdays].sort((a,b)=> a.startDate<b.startDate?-1:1);
+  const ddaySorted = [...eventDdays]
+    .filter(item=> diffDays(parseDate(item.endDate||item.startDate), parseDate(todayStr)) <= 1) // 끝난 다음날까지만 "지남" 표시, 그 이후 자동 숨김
+    .sort((a,b)=> a.startDate<b.startDate?-1:1);
   const selectedEvents = eventsOnDate(S.selectedDate);
   const selectedHoliday = redDayLabel(S.selectedDate);
 
